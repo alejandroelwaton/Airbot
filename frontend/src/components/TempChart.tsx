@@ -12,7 +12,7 @@ export default function TempChart() {
       title="Temperatura"
       currentValue={sensorData.temp}
       unit="°C"
-      color="#5ea500"
+      color="#c1d6a6ff"
       maxPoints={40}
       minPoints={20}
     />

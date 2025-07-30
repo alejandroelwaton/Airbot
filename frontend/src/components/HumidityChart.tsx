@@ -12,7 +12,7 @@ export default function TempChart() {
       title="Humedad"
       currentValue={sensorData.hum}
       unit="%"
-      color="#5a7fc0"
+      color="#758fbbff"
       maxPoints={100}
       minPoints={2}
     />

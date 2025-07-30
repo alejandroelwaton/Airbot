@@ -1,1 +1,47 @@
 @import "tailwindcss";
+@tailwind base;
+
+:root {
+  --color-bg: #f8f9fa;
+  --color-fg: #1a1a1a;
+  --color-card: #ffffff;
+  --color-border: #d1d5db;
+}
+
+.dark {
+  --color-bg: #000000;
+  --color-bg-alt: #121013;
+  --color-fg: #ffffff;
+  --color-card: #0a080a;
+  --color-border: #2e2a32;
+  --color-chart: #1f1f1f;
+  --color-fg-chart: #ffffff;
+}
+@tailwind components;
+@tailwind utilities;
+
+.bg-background {
+  background-color: var(--color-bg);
+}
+.bg-alt {
+  background-color: var(--color-bg-alt);
+}
+.text-foreground {
+  color: var(--color-fg);
+}
+.bg-card {
+  background-color: var(--color-card);
+}
+.border-border {
+  border-color: var(--color-border);
+}
+.bg-chart {
+    background-color: var(--color-chart);
+}
+.text-chart {
+    color: var(--color-fg-chart);
+}
+
+
+
+

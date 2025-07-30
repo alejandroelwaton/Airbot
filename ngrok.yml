@@ -1,0 +1,22 @@
+version: 3
+
+tunnels:
+  vite:
+    addr: 5173
+    proto: http
+    schemes:
+      - https  # Vite frontend en HTTPS
+
+  arduino_api:
+    addr: 8000
+    proto: http
+    schemes:
+      - http   # Solo HTTP (para Arduino)
+
+  backend:
+    addr: 8000
+    proto: http
+    schemes:
+      - https  # Solo HTTPS (para navegador)
+agent:
+  authtoken: 30G1ONLmElFJF2AfLiigLnTvCz3_7twYtN9vGRUMfejvsKFJY

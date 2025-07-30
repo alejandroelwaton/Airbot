@@ -2,11 +2,14 @@
 import { createContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
 
+let socketip = "wss://dd8fd039cb15.ngrok-free.app/ws"
 
-interface SensorData {
+export interface SensorData {
+  id: string;        
   temp: number;
   hum: number;
   co2: number;
+  co: number;
 }
 
 export const SensorContext = createContext<SensorData | null>(null);
@@ -15,7 +18,7 @@ export function SensorProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<SensorData | null>(null);
 
   useEffect(() => {
-    const socket = new WebSocket("ws://192.168.0.8:8000/ws");
+    const socket = new WebSocket(socketip);
 
     socket.onmessage = (event) => {
       try {

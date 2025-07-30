@@ -25,15 +25,14 @@ export default function SensorChart({
   title,
   currentValue,
   unit = "",
-  color = "#3b82f6",
+  color = "#ffffffff",
   maxPoints = 100,
-  minPoints = 20
+  minPoints = 20,
 }: SensorChartProps) {
   const [labels, setLabels] = useState<string[]>([]);
   const [dataPoints, setDataPoints] = useState<number[]>([]);
 
   useEffect(() => {
-    console.log("currentValue:", currentValue, "typeof:", typeof currentValue);
     if (typeof currentValue === "number" && !isNaN(currentValue)) {
       setLabels((prev) => [...prev.slice(-maxPoints + 1), new Date().toLocaleTimeString()]);
       setDataPoints((prev) => [...prev.slice(-maxPoints + 1), currentValue]);
@@ -44,10 +43,10 @@ export default function SensorChart({
     labels,
     datasets: [
       {
-        label: `${title} ${unit}`,
+        label: `${unit}`,
         data: dataPoints,
         borderColor: color,
-        backgroundColor: color + "50",
+        backgroundColor: color,
         tension: 0.4,
         fill: true,
         pointRadius: 0,
@@ -60,23 +59,31 @@ export default function SensorChart({
     maintainAspectRatio: false,
     scales: {
       y: {
-      min: minPoints,     // mínimo valor en eje Y
-      max: maxPoints,     // máximo valor en eje Y
-      ticks: {
-        stepSize: 5,         // intervalo entre marcas
-        callback: (value: any) =>
-          typeof value === "number" ? value.toFixed(0) : value,
+        min: minPoints,
+        max: maxPoints,
+        ticks: {
+          color: "#ffffff",
+          stepSize: 5,
+          callback: (value: any) =>
+            typeof value === "number" ? value.toFixed(0) : value,
+        },
+      grid: {
+        color: "#4d4c4cff"
       },
-    },
+      },
       x: {
         ticks: {
           maxTicksLimit: 5,
+          color: "#ffffff",
+        },
+        grid: {
+          color: "#4d4c4cff"
         },
       },
     },
     animation: {
       duration: 300,
-      easing: "linear",
+      easing: "linear" as const,
     },
     plugins: {
       legend: {
@@ -89,9 +96,13 @@ export default function SensorChart({
   };
 
   return (
-    <div className="w-full h-64 md:h-80 bg-white rounded-sm pb-3">
-      <h3 className="mb-2 font-semibold bg-gray-200 rounded-lg border-1 border-gray-300 p-2">{title} : {currentValue} {unit}</h3>
-      <Line data={chartData} options={options} />
+    <div className="w-full h-[280px] md:h-[400px] bg-chart text-chart pb-3 flex flex-col rounded-md border border-border">
+      <h3 className="mb-2 font-semibold border-b border-border p-2 flex-shrink-0 text-sm md:text-base">
+        {title} : {currentValue?.toFixed(2)} {unit}
+      </h3>
+      <div className="flex-grow">
+        <Line data={chartData} options={options} className="object-contain w-full h-full" />
+      </div>
     </div>
   );
 }
