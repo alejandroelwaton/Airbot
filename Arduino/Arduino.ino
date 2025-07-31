@@ -6,7 +6,7 @@
 
 // Values for MQ Sensors
 #define RL_MQ135 10000.0  // 10kΩ
-#define RL_MQ9   10.0  // 10kΩ
+#define RL_MQ9   10000.0  // 10kΩ
 #define ADC_RESOLUTION 4095.0
 #define VREF 3.3
 
@@ -42,7 +42,7 @@ float readRS_MQ135() {
   int adcValue = analogRead(MQ135_PIN);
   float voltage = adcValue * (VREF / ADC_RESOLUTION);
   float rs = (VREF - voltage) * RL_MQ135 / voltage;
-  return rs;
+  return voltage;
 }
 
 float getAlcoholMQ135(float rs) {
@@ -63,7 +63,7 @@ float readRS_MQ9() {
   int adcValue = analogRead(MQ9_PIN);
   float voltage = adcValue * (VREF / ADC_RESOLUTION);
   float rs = (VREF - voltage) * RL_MQ9 / voltage;
-  return rs;
+  return voltage;
 }
 
 float getCOMQ9(float rs) {
@@ -81,11 +81,11 @@ float getMethaneMQ9(float rs) {
 }
 
 //Internet Connection
-char ssid[] = ".TigoWiFi-394220476/0";
-char pass[] = "WiFi-91963098";
+char ssid[] = "Alee";
+char pass[] = "tucansito";
 
 //API address
-char serverAddress[] = "0bafb108d744.ngrok-free.app";
+char serverAddress[] = "8b1abc5bb366.ngrok-free.app";
 int port = 80;
 
 //WiFi Client
@@ -123,6 +123,7 @@ void setup() {
   pinMode(LEDR, OUTPUT);
   pinMode(LEDB, OUTPUT);
   Serial.begin(9600);
+  analogReadResolution(12);
   while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
     delay(1000);
     digitalWrite(LEDR, HIGH);
@@ -138,12 +139,12 @@ void setup() {
 //Loop
 void loop() {
   float rs135 = readRS_MQ135();
+  float rs9 = readRS_MQ9();
   t = dht.readTemperature();
   h = dht.readHumidity();
   //co_ppm = getCOMQ9(Ro_MQ9);
-  co2_ppm = 605.18 * pow((getAlcoholMQ135(rs135) / Ro_MQ135), -2.936);
 
-  POSTData(30, 80, 10, co2_ppm);
+  POSTData(t, h, rs9, rs135);
   //BLE.poll();
   delay(500);
 }

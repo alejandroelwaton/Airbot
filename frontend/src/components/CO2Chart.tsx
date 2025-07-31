@@ -10,9 +10,9 @@ export default function TempChart() {
     <SensorChart
       title="VOC (Contaminantes Volatiles Organicos)"
       currentValue={sensorData.co2}
-      unit="ppm"
+      unit="raw"
       color="#a59c87ff"
-      maxPoints={50}
+      maxPoints={1}
       minPoints={0}
     />
   );

@@ -10,9 +10,9 @@ export default function Contaminants() {
     <SensorChart
       title="VOC (Gases contaminantes)"
       currentValue={sensorData.co}
-      unit="ppm"
+      unit="(raw)"
       color="#a77e28ff"
-      maxPoints={50}
+      maxPoints={1}
       minPoints={0}
     />
   );
