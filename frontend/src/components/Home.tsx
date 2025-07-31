@@ -3,7 +3,7 @@ import { Link } from "react-router";
 
 export default function Home() {
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center text-center px-4">
+        <div className="min-h-screen flex flex-col items-center text-center px-4">
             <motion.img
                 src="/assets/output.png"
                 alt="Airbot Logo"
@@ -52,12 +52,12 @@ export default function Home() {
                             Sobre el proyecto
                         </Link>
                     </div>
-                    <Link
+                    {/* <Link
                         to="/connect"
                         className="px-6 py-3 border border-border text-fg rounded-xl bg-background hover:scale-105 transition duration-300 ease-in-out transform flex items-center gap-2"
                     >
                         Conectar
-                    </Link>
+                    </Link> */}
                 </div>
             </motion.div>
         </div>

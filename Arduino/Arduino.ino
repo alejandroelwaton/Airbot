@@ -81,8 +81,8 @@ float getMethaneMQ9(float rs) {
 }
 
 //Internet Connection
-char ssid[] = "Alee";
-char pass[] = "tucansito";
+char ssid[] = "iPhone";
+char pass[] = "021107";
 
 //API address
 char serverAddress[] = "8b1abc5bb366.ngrok-free.app";
