@@ -52,12 +52,12 @@ export default function Home() {
                             Sobre el proyecto
                         </Link>
                     </div>
-                    {/* <Link
+                    { <Link
                         to="/connect"
                         className="px-6 py-3 border border-border text-fg rounded-xl bg-background hover:scale-105 transition duration-300 ease-in-out transform flex items-center gap-2"
                     >
                         Conectar
-                    </Link> */}
+                    </Link>}
                 </div>
             </motion.div>
         </div>

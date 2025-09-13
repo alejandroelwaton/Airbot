@@ -1,7 +1,7 @@
 // src/context/SensorContext.tsx
 import { createContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
-let socketip = "wss://54bf338bc185.ngrok-free.app/ws";
+let socketip = "wss://de6a92acce41.ngrok-free.app/ws";
 
 export interface SensorData {
   id: string;        

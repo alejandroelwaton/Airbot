@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router";
-//import { useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import About from "./components/About";
 import Navbar from "./components/NavBar";
 import Charts from "./components/Charts";
@@ -10,18 +10,18 @@ import { useEffect } from "react";
 
 
 
-// function ConectRobotButton() {
-//   const navigate = useNavigate();
+function ConectRobotButton() {
+  const navigate = useNavigate();
 
-//   return (
-//     <button
-//       className="px-4 py-2 bg-blue-600 text-white rounded"
-//       onClick={() => navigate('/connect')}
-//     >
-//       Ir a otra página
-//     </button>
-//   );
-// }
+  return (
+    <button
+      className="px-4 py-2 bg-blue-600 text-white rounded"
+      onClick={() => navigate('/connect')}
+    >
+      Ir a otra página
+    </button>
+  );
+}
 
 
 
