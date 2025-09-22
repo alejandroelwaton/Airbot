@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, Body
+from fastapi import FastAPI, WebSocket, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import asyncio
@@ -7,22 +7,32 @@ import os
 from datetime import datetime
 from fastapi import HTTPException
 import pandas as pd
-
+from pywebpush import webpush, WebPushException
+import time
 app = FastAPI()
 clients = set()
 
-# Carpeta para guardar los archivos CSV por robot
+
 CSV_DIR = "RoboNet"
 os.makedirs(CSV_DIR, exist_ok=True)
 
 FIELDNAMES = ["ID", "timestamp", "temp", "hum", "co", "co2"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # o lista específica de orígenes
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Claves VAPID
+VAPID_PUBLIC_KEY = "BNZfSnVZA12cOzoITwbiCnCYLCu662ZkaKljCljDgb5-d4ByXxt9isZwmpPJsQNGALYvaEVXoGB3gA9aZ0nwLRI"
+VAPID_PRIVATE_KEY = "ch9DaMu5bXp08d4PYtmCEWEYgPGmbi9e3oD2yLur9ns"
+VAPID_CLAIMS = {"sub": "mailto:dantesefiro190@gmail.com", "exp": int(time.time()) + 12*60*60}
+
+# Lista de subscripciones
+subscriptions = []
+
 class SensorData(BaseModel):
     ID: int
     temp: float
@@ -35,7 +45,6 @@ class SensorData(BaseModel):
 async def receive_data(data: SensorData):
     filename = os.path.join(CSV_DIR, f"robot_{data.ID}.csv")
 
-    # Si el archivo no existe, crear con encabezado
     file_exists = os.path.exists(filename)
     with open(filename, mode="a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
@@ -58,7 +67,7 @@ async def receive_data(data: SensorData):
 
     return {"message": "OK"}
 
-
+ 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -71,6 +80,34 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         clients.discard(websocket)
 
+
+
+@app.get("/vapid_public_key")
+def get_vapid_public_key():
+    return {"publicKey": VAPID_PUBLIC_KEY}
+
+@app.post("/subscribe")
+async def subscribe(request: Request):
+    sub = await request.json()
+    subscriptions.append(sub)
+    print("Nueva suscripción:", sub)
+    return {"status": "subscribed"}
+
+@app.post("/send")
+async def send_push(request: Request):
+    body = await request.json()
+    message = body.get("message", "Alerta!")
+    for sub in subscriptions:
+        try:
+            webpush(
+                subscription_info=sub,
+                data=message,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims=VAPID_CLAIMS,
+            )
+        except WebPushException as ex:
+            print("Error enviando push:", ex)
+    return {"status": "sent", "message": message}
 
 @app.get("/predict/{robot_id}")
 def predict_pollution(robot_id: int):
@@ -102,10 +139,9 @@ def predict_pollution(robot_id: int):
         "timestamp": datetime.now().isoformat(),
         "predicted_pollution_index": round(predicted_pollution, 2),
         "recommendation": recommendation,
-        "user_feedback": ""  # <- para que luego se complete con "sí" o "no"
+        "user_feedback": ""
     }
 
-    # Guardar predicción
     file_exists = os.path.exists(predictions_file)
     with open(predictions_file, mode="a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=prediction_record.keys())
@@ -127,7 +163,6 @@ def receive_feedback(robot_id: int, timestamp: str = Body(...), feedback: str = 
 
     df = pd.read_csv(predictions_file)
 
-    # Buscar por timestamp exacto
     match = df["timestamp"] == timestamp
     if not match.any():
         raise HTTPException(status_code=404, detail="Prediction timestamp not found.")

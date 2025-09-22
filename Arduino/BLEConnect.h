@@ -20,4 +20,5 @@ public:
     void readPass();
     String ssid;
     String pass;
+    void terminate();
 };

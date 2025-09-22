@@ -1,4 +1,5 @@
 #include "BLEConnect.h"
+#include <WiFiNINA.h>
 
 BLEConnection_t::BLEConnection_t(const char* id) 
         : robotService(      "19b10000-e8f2-537e-4f6c-d104768a1214"),
@@ -21,15 +22,15 @@ bool BLEConnection_t::begin() {
     robotService.addCharacteristic(ssidCharacteristic);
     robotService.addCharacteristic(passCharacteristic);
     robotService.addCharacteristic(wifiTriggerCharacteristic);
-    BLE.addService(robotService);           // primero agregar servicio con todas las características
-    BLE.setAdvertisedService(robotService); // luego indicar cuál anunciar
+    BLE.addService(robotService);
+    BLE.setAdvertisedService(robotService);
     BLE.setLocalName("SensorBot");
     BLE.advertise();
     
     idCharacteristic.writeValue(robotID.c_str());
     
     BLE.advertise();
-    Serial.println("BLE listo y publicando");
+    Serial.println("BLE ready, published");
     return true;    
 }
 
@@ -61,7 +62,7 @@ void BLEConnection_t::readSSID() {
     if (ssidCharacteristic.written()) {
         int len = ssidCharacteristic.valueLength();
         const uint8_t* data = ssidCharacteristic.value();
-        ssid = String((const char*)data, len);  // crea String correctamente
+        ssid = String((const char*)data, len);
     }
 }
 
@@ -71,4 +72,14 @@ void BLEConnection_t::readPass() {
         const uint8_t* data = passCharacteristic.value();
         pass = String((const char*)data, len);
     }
+}
+
+
+void BLEConnection_t::terminate() {
+    BLE.end();
+    delay(1000);
+    WiFi.disconnect();
+    delay(500);
+    WiFi.end(); 
+    delay(1000);
 }

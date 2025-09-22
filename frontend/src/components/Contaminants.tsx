@@ -12,8 +12,8 @@ export default function Contaminants() {
       currentValue={sensorData.co}
       unit="(raw)"
       color="#a77e28ff"
-      maxPoints={1}
-      minPoints={0}
+      maxPoints={1000}
+      minPoints={200}
     />
   );
 }

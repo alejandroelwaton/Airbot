@@ -3,10 +3,10 @@
 #include <DHT.h>
 
 // Values for MQ Sensors
-#define RL_MQ135 10000.0  // 10kΩ
+#define RL_MQ135 10.0  // 10kΩ
 #define RL_MQ9   10.0  // 10kΩ
 #define ADC_RESOLUTION 4095.0
-#define VREF 3.3
+#define VREF 2.5
 
 //MQ Read Functions
 float readRS_MQ135();

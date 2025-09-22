@@ -8,7 +8,7 @@ export default defineConfig({
             tailwindcss()
   ],
   server: {
-      allowedHosts: ["12817abe1896.ngrok-free.app"]
+      allowedHosts: ["71ff0b7ba833.ngrok-free.app"]
   }
 
 })

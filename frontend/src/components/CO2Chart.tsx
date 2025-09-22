@@ -12,8 +12,8 @@ export default function TempChart() {
       currentValue={sensorData.co2}
       unit="raw"
       color="#a59c87ff"
-      maxPoints={1}
-      minPoints={0}
+      maxPoints={1000}
+      minPoints={200}
     />
   );
 }

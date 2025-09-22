@@ -2,11 +2,12 @@
 #include "APIClient.h"
 #include "Sensors.h"
 #include "BLEConnect.h"
+#include "Activator.h"
 
 
 WiFiConnector_t connector {};
 BLEConnection_t BLEConnection {"1"};
-APIClient_t httpClient {connector.wifi, "972d658b6f85.ngrok-free.app", 80};
+APIClient_t httpClient {connector.wifi, " 573d977128cf.ngrok-free.app", 80};
 
 
 Sensors_t sensors;
@@ -20,13 +21,7 @@ void setup() {
   while (!BLEConnection.enableWifi){
     BLEConnection.poll();
   }
-  BLE.end();
-  delay(1000);
-  // Add these lines to perform a full reset of the Wi-Fi module
-  WiFi.disconnect(); // Disconnect from any network
-  delay(500);
-  WiFi.end(); // Shut down the module completely
-  delay(1000); // Add a small delay for a clean transition
+  BLEConnection.terminate();
   connector.setWPA(BLEConnection.ssid.c_str(), BLEConnection.pass.c_str());
   connector.begin();
   delay(500);
@@ -42,5 +37,8 @@ void loop() {
     sensors.mq_9,
     sensors.mq_135
   );
+  //TODO:
+  // Add the treshold for mild alert, normal alert, extreme alert
+  //alert();
   delay(500);
 }
