@@ -4,7 +4,7 @@ from collections import defaultdict, Counter
 # ---------------- CONFIGURACIÓN ----------------
 ROOT_DIR = "."  # Carpeta raíz del proyecto
 EXTENSIONS = [".py", ".cpp", ".c", ".h", ".js", ".ts", ".tsx", ".ino"]  # Extensiones a contar
-IGNORE_DIRS = {"venv", "node_modules", ".git", "dist"}  # Carpetas a ignorar
+IGNORE_DIRS = {"venv", "node_modules", ".git", "dist", ".vscode"}  # Carpetas a ignorar
 TOP_FILES = 10  # Mostrar los X archivos con más líneas
 TOP_FOLDERS = 5  # Mostrar las X carpetas más grandes
 # ----------------------------------------------
