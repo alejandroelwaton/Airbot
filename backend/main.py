@@ -1,22 +1,21 @@
-from fastapi import FastAPI, WebSocket, Body, Request
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import asyncio
-import csv
-import os
-from datetime import datetime
-from fastapi import HTTPException
-import pandas as pd
-from pywebpush import webpush, WebPushException
-import time
+import asyncio, csv, os, datetime, statistics
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import tweepy
+from dotenv import load_dotenv
+
+# ----------------- Inicialización -----------------
 app = FastAPI()
 clients = set()
-
+load_dotenv()
 
 CSV_DIR = "RoboNet"
 os.makedirs(CSV_DIR, exist_ok=True)
-
 FIELDNAMES = ["ID", "timestamp", "temp", "hum", "co", "co2"]
+data_buffer = []
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,40 +24,53 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Claves VAPID
-VAPID_PUBLIC_KEY = "BNZfSnVZA12cOzoITwbiCnCYLCu662ZkaKljCljDgb5-d4ByXxt9isZwmpPJsQNGALYvaEVXoGB3gA9aZ0nwLRI"
-VAPID_PRIVATE_KEY = "ch9DaMu5bXp08d4PYtmCEWEYgPGmbi9e3oD2yLur9ns"
-VAPID_CLAIMS = {"sub": "mailto:dantesefiro190@gmail.com", "exp": int(time.time()) + 12*60*60}
+# ----------------- Config OAuth 1.0a -----------------
+API_KEY = os.getenv("TWITTER_API_KEY")
+API_SECRET = os.getenv("TWITTER_API_SECRET")
+ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
+ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET")
 
-# Lista de subscripciones
-subscriptions = []
+twitter_client = tweepy.Client(
+    consumer_key=API_KEY,
+    consumer_secret=API_SECRET,
+    access_token=ACCESS_TOKEN,
+    access_token_secret=ACCESS_SECRET
+)
 
+# ----------------- Modelos -----------------
 class SensorData(BaseModel):
     ID: int
     temp: float
     hum: float
-    co: float   
-    co2: float     
+    co: float
+    co2: float
 
-
+# ----------------- Endpoints de datos -----------------
 @app.post("/data")
 async def receive_data(data: SensorData):
+    global data_buffer
     filename = os.path.join(CSV_DIR, f"robot_{data.ID}.csv")
 
+    data_buffer.append({
+        "ts": datetime.datetime.now(datetime.timezone.utc),
+        **data.model_dump()
+    })
+
     file_exists = os.path.exists(filename)
-    with open(filename, mode="a", newline="") as f:
+    with open(filename, "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         if not file_exists:
             writer.writeheader()
         writer.writerow({
             "ID": data.ID,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.datetime.now().isoformat(),
             "temp": data.temp,
             "hum": data.hum,
             "co": data.co,
-            "co2": data.co2,
+            "co2": data.co2
         })
 
+    # Notificar a los websockets conectados
     for ws in clients.copy():
         try:
             await ws.send_json(data.dict())
@@ -67,7 +79,6 @@ async def receive_data(data: SensorData):
 
     return {"message": "OK"}
 
- 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -80,94 +91,62 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         clients.discard(websocket)
 
+# ----------------- Función post summary -----------------
+async def post_summary_async():
+    global data_buffer, twitter_client
+    if not data_buffer:
+        return
 
+    avg_temp = statistics.mean([d["temp"] for d in data_buffer])
+    avg_hum = statistics.mean([d["hum"] for d in data_buffer])
+    avg_co = statistics.mean([d["co"] for d in data_buffer])
+    avg_co2 = statistics.mean([d["co2"] for d in data_buffer])
 
-@app.get("/vapid_public_key")
-def get_vapid_public_key():
-    return {"publicKey": VAPID_PUBLIC_KEY}
+    status = "Normal"
+    if avg_co2 > 1000 or avg_co > 9:
+        status = "Alta"
+    elif avg_co2 > 700 or avg_co > 5:
+        status = "Leve"
 
-@app.post("/subscribe")
-async def subscribe(request: Request):
-    sub = await request.json()
-    subscriptions.append(sub)
-    print("Nueva suscripción:", sub)
-    return {"status": "subscribed"}
+    text = (f"Última hora\n"
+            f"Temp: {avg_temp:.1f}°C\n"
+            f"Hum: {avg_hum:.1f}%\n"
+            f"CO: {avg_co:.1f}\n"
+            f"CO₂: {avg_co2:.1f}\n"
+            f"Estado: {status}\n"
+            "#AirQuality #IoT #StudentProject")
 
-@app.post("/send")
-async def send_push(request: Request):
-    body = await request.json()
-    message = body.get("message", "Alerta!")
-    for sub in subscriptions:
-        try:
-            webpush(
-                subscription_info=sub,
-                data=message,
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims=VAPID_CLAIMS,
-            )
-        except WebPushException as ex:
-            print("Error enviando push:", ex)
-    return {"status": "sent", "message": message}
+    try:
+        twitter_client.create_tweet(text=text)
+        print("Tweet enviado")
+    except Exception as e:
+        print("Error enviando tweet:", e)
 
-@app.get("/predict/{robot_id}")
-def predict_pollution(robot_id: int):
-    data_file = os.path.join(CSV_DIR, f"robot_{robot_id}.csv")
-    predictions_file = os.path.join(CSV_DIR, f"predictions_{robot_id}.csv")
+    data_buffer = []
 
-    if not os.path.exists(data_file):
-        raise HTTPException(status_code=404, detail="Robot data not found")
+# Endpoint para probar envío manual
+@app.post("/post_summary")
+async def post_summary_endpoint():
+    text = (f"Última hora\n"
+            f"Temp: {21}°C\n"
+            f"Hum: {100}%\n"
+            f"CO: {200}\n"
+            f"CO₂: {300}\n"
+            f"Estado: OK\n"
+            "#AirQuality #IoT #StudentProject")
+    twitter_client.create_tweet(text=text)
+    return {"status": "Tweet enviado (si se permite)"}
 
-    df = pd.read_csv(data_file)
+# ----------------- Scheduler seguro -----------------
+def post_summary_job():
+    # Ejecuta la coroutine en un loop existente o nuevo
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    loop.run_until_complete(post_summary_async())
 
-    if df.empty or len(df) < 3:
-        raise HTTPException(status_code=400, detail="Not enough data to predict")
-
-    avg_temp = df["temp"].tail(5).mean()
-    avg_hum = df["hum"].tail(5).mean()
-    avg_gas = (df["co"].tail(5).mean() + df["co2"].tail(5).mean()) / 2
-
-    predicted_pollution = 0.6 * avg_gas + 0.2 * avg_temp + 0.2 * avg_hum
-
-    if predicted_pollution < 100:
-        recommendation = "Aire limpio, puedes salir con tranquilidad."
-    elif predicted_pollution < 200:
-        recommendation = "Calidad del aire moderada, evita actividades al aire libre prolongadas."
-    else:
-        recommendation = "Contaminación alta, evita salir y ventila bien tu espacio."
-
-    prediction_record = {
-        "timestamp": datetime.now().isoformat(),
-        "predicted_pollution_index": round(predicted_pollution, 2),
-        "recommendation": recommendation,
-        "user_feedback": ""
-    }
-
-    file_exists = os.path.exists(predictions_file)
-    with open(predictions_file, mode="a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=prediction_record.keys())
-        if not file_exists:
-            writer.writeheader()
-        writer.writerow(prediction_record)
-
-    return {
-        "robot_id": robot_id,
-        **prediction_record
-    }
-
-@app.post("/feedback/{robot_id}")
-def receive_feedback(robot_id: int, timestamp: str = Body(...), feedback: str = Body(...)):
-    predictions_file = os.path.join(CSV_DIR, f"predictions_{robot_id}.csv")
-
-    if not os.path.exists(predictions_file):
-        raise HTTPException(status_code=404, detail="No predictions file found.")
-
-    df = pd.read_csv(predictions_file)
-
-    match = df["timestamp"] == timestamp
-    if not match.any():
-        raise HTTPException(status_code=404, detail="Prediction timestamp not found.")
-
-    df.loc[match, "user_feedback"] = feedback.strip().lower()
-    df.to_csv(predictions_file, index=False)
-
-    return {"message": "Feedback saved successfully"}
+scheduler = AsyncIOScheduler()
+scheduler.add_job(post_summary_job, "cron", minute=0)  # cada hora en el minuto 0
+scheduler.start()

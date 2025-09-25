@@ -7,7 +7,7 @@
 
 WiFiConnector_t connector {};
 BLEConnection_t BLEConnection {"1"};
-APIClient_t httpClient {connector.wifi, " 573d977128cf.ngrok-free.app", 80};
+APIClient_t httpClient {connector.wifi, " 04bbec11d220.ngrok-free.app", 80};
 
 
 Sensors_t sensors;
