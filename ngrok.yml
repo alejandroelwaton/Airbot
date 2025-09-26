@@ -19,4 +19,4 @@ tunnels:
     schemes:
       - https  # Solo HTTPS (para navegador)
 agent:
-  authtoken: 30G1ONLmElFJF2AfLiigLnTvCz3_7twYtN9vGRUMfejvsKFJY
+  authtoken: 33BEASzsyOPIkoxNTU7qrwIiZr2_3hTsiP5AEUEybYSsWHuWn

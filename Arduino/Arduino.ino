@@ -7,7 +7,7 @@
 
 WiFiConnector_t connector {};
 BLEConnection_t BLEConnection {"1"};
-APIClient_t httpClient {connector.wifi, " 04bbec11d220.ngrok-free.app", 80};
+APIClient_t httpClient {connector.wifi, "unblighted-furious-karon.ngrok-free.dev", 80};
 
 
 Sensors_t sensors;
@@ -26,6 +26,7 @@ void setup() {
   connector.begin();
   delay(500);
   sensors.begin();
+  delay(500);
 }
 
 //Loop

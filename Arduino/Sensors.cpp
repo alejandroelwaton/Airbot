@@ -4,7 +4,7 @@
 #define DHTTYPE DHT22 
 
 // DHT (temperature) sensor pin
-const int DHTPin = 2;
+const int DHTPin = 4;
 DHT dht(DHTPin, DHTTYPE);
 
 // Calibrated sensors resistance values
@@ -16,17 +16,19 @@ const int MQ9_PIN = A1;
 const int MQ135_PIN = A0;
 
 float readRS_MQ135() {
-  int adcValue = analogRead(MQ135_PIN);
-  float voltage = adcValue * (VREF / ADC_RESOLUTION);
-  float rs = (VREF - voltage) * RL_MQ135 / voltage;
-  return rs;
+  return analogRead(MQ135_PIN);
+  // float voltage = adcValue * (VREF / ADC_RESOLUTION);
+  // voltage = voltage * 2;
+  // float rs = (VREF - voltage) * RL_MQ135 / voltage;
+  // return rs;
 }
 
 float readRS_MQ9() {
-  int adcValue = analogRead(MQ9_PIN);
-  float voltage = adcValue * (VREF / ADC_RESOLUTION);
-  float rs = (VREF - voltage) * RL_MQ9 / voltage;
-  return rs;
+   return analogRead(MQ9_PIN);
+  // float voltage = adcValue * (VREF / ADC_RESOLUTION);
+  // voltage*=2;
+  // float rs = (VREF - voltage) * RL_MQ9 / voltage;
+  // return rs;
 }
 
 

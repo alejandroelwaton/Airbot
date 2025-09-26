@@ -6,7 +6,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import tweepy
 from dotenv import load_dotenv
 
-# ----------------- Inicialización -----------------
 app = FastAPI()
 clients = set()
 load_dotenv()
@@ -14,7 +13,8 @@ load_dotenv()
 CSV_DIR = "RoboNet"
 os.makedirs(CSV_DIR, exist_ok=True)
 FIELDNAMES = ["ID", "timestamp", "temp", "hum", "co", "co2"]
-data_buffer = []
+
+robot_buffers = {}
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,7 +24,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ----------------- Config OAuth 1.0a -----------------
 API_KEY = os.getenv("TWITTER_API_KEY")
 API_SECRET = os.getenv("TWITTER_API_SECRET")
 ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
@@ -37,7 +36,6 @@ twitter_client = tweepy.Client(
     access_token_secret=ACCESS_SECRET
 )
 
-# ----------------- Modelos -----------------
 class SensorData(BaseModel):
     ID: int
     temp: float
@@ -45,17 +43,26 @@ class SensorData(BaseModel):
     co: float
     co2: float
 
-# ----------------- Endpoints de datos -----------------
 @app.post("/data")
 async def receive_data(data: SensorData):
-    global data_buffer
-    filename = os.path.join(CSV_DIR, f"robot_{data.ID}.csv")
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if data.ID not in robot_buffers:
+        robot_buffers[data.ID] = []
 
-    data_buffer.append({
-        "ts": datetime.datetime.now(datetime.timezone.utc),
-        **data.model_dump()
+    robot_buffers[data.ID].append({
+        "ts": now,
+        "temp": float(data.temp),
+        "hum": float(data.hum),
+        "co": float(data.co),
+        "co2": float(data.co2)
     })
 
+    # Mantener solo datos de la última hora
+    cutoff = now - datetime.timedelta(hours=1)
+    robot_buffers[data.ID] = [d for d in robot_buffers[data.ID] if d["ts"] >= cutoff]
+
+    # Guardar en CSV
+    filename = os.path.join(CSV_DIR, f"robot_{data.ID}.csv")
     file_exists = os.path.exists(filename)
     with open(filename, "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
@@ -63,21 +70,21 @@ async def receive_data(data: SensorData):
             writer.writeheader()
         writer.writerow({
             "ID": data.ID,
-            "timestamp": datetime.datetime.now().isoformat(),
+            "timestamp": now.isoformat(),
             "temp": data.temp,
             "hum": data.hum,
             "co": data.co,
             "co2": data.co2
         })
 
-    # Notificar a los websockets conectados
+    # Enviar datos a websockets conectados
     for ws in clients.copy():
         try:
             await ws.send_json(data.dict())
         except:
             clients.remove(ws)
 
-    return {"message": "OK"}
+    return {"message": "Data received"}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -91,62 +98,111 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         clients.discard(websocket)
 
-# ----------------- Función post summary -----------------
-async def post_summary_async():
-    global data_buffer, twitter_client
-    if not data_buffer:
+async def post_hourly_summary():
+    all_data = [d for buffer in robot_buffers.values() for d in buffer]
+    if not all_data:
+        print("[SUMMARY] No data to summarize")
         return
 
-    avg_temp = statistics.mean([d["temp"] for d in data_buffer])
-    avg_hum = statistics.mean([d["hum"] for d in data_buffer])
-    avg_co = statistics.mean([d["co"] for d in data_buffer])
-    avg_co2 = statistics.mean([d["co2"] for d in data_buffer])
+    avg_temp = statistics.mean([d["temp"] for d in all_data])
+    avg_hum = statistics.mean([d["hum"] for d in all_data])
+    avg_co = statistics.mean([d["co"] for d in all_data])
+    avg_co2 = statistics.mean([d["co2"] for d in all_data])
 
     status = "Normal"
-    if avg_co2 > 1000 or avg_co > 9:
-        status = "Alta"
-    elif avg_co2 > 700 or avg_co > 5:
-        status = "Leve"
+    if avg_co2 > 80 or avg_co > 180:
+        status = "High"
+    elif avg_co2 > 40 or avg_co > 140:
+        status = "Moderate"
 
-    text = (f"Última hora\n"
+    text = (f"Last hour summary\n"
             f"Temp: {avg_temp:.1f}°C\n"
             f"Hum: {avg_hum:.1f}%\n"
             f"CO: {avg_co:.1f}\n"
             f"CO₂: {avg_co2:.1f}\n"
-            f"Estado: {status}\n"
+            f"Status: {status}\n"
             "#AirQuality #IoT #StudentProject")
+
+    print("[SUMMARY] Posting hourly summary:", text)
 
     try:
         twitter_client.create_tweet(text=text)
-        print("Tweet enviado")
+        print("[SUMMARY] Hourly summary tweet sent")
     except Exception as e:
-        print("Error enviando tweet:", e)
+        print("[SUMMARY] Error sending hourly tweet:", e)
 
-    data_buffer = []
+    # Limpiar buffers después de enviar resumen
+    for key in robot_buffers:
+        robot_buffers[key].clear()
 
-# Endpoint para probar envío manual
+async def post_urgent_check(robot_id=None):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cutoff = now - datetime.timedelta(minutes=5)
+
+    buffers_to_check = [robot_buffers[robot_id]] if robot_id else robot_buffers.values()
+    alert_sent = False
+    
+    for idx, buf in enumerate(buffers_to_check):
+        recent_data = [d for d in buf if d["ts"] >= cutoff]
+        if not recent_data:
+            print(f"[URGENT] Robot {robot_id if robot_id else idx} - No recent data")
+            continue
+
+        avg_temp = statistics.mean([d["temp"] for d in recent_data])
+        avg_hum = statistics.mean([d["hum"] for d in recent_data])
+        avg_co = statistics.mean([d["co"] for d in recent_data])
+        avg_co2 = statistics.mean([d["co2"] for d in recent_data])
+
+        # Debug: imprimir todos los valores calculados
+        print(f"[URGENT DEBUG] Robot {robot_id if robot_id else idx} - Avg Temp: {avg_temp}, Hum: {avg_hum}, CO: {avg_co}, CO2: {avg_co2}")
+
+        urgent = False
+        status = "Normal"
+        if avg_co2 > 80 or avg_co > 180:
+            status = "High"
+            urgent = True
+        elif avg_co2 > 40 or avg_co > 140:
+            status = "Moderate"
+
+        print(f"[URGENT DEBUG] Robot {robot_id if robot_id else idx} - Status: {status}, Urgent: {urgent}")
+
+        if urgent:
+            text = (f"⚠️ URGENT ALERT ⚠️\n"
+                    f"Last 5 minutes\n"
+                    f"Temp: {avg_temp:.1f}°C\n"
+                    f"Hum: {avg_hum:.1f}%\n"
+                    f"CO: {avg_co:.1f}\n"
+                    f"CO₂: {avg_co2:.1f}\n"
+                    f"Status: {status}\n"
+                    "#AirQuality #IoT #StudentProject")
+            try:
+                twitter_client.create_tweet(text=text)
+                print(f"[URGENT] Urgent tweet sent for robot {robot_id if robot_id else idx}")
+                alert_sent = True
+            except Exception as e:
+                print("[URGENT] Error sending urgent tweet:", e)
+
+    return {"alert_sent": alert_sent}
+
 @app.post("/post_summary")
 async def post_summary_endpoint():
-    text = (f"Última hora\n"
-            f"Temp: {21}°C\n"
-            f"Hum: {100}%\n"
-            f"CO: {200}\n"
-            f"CO₂: {300}\n"
-            f"Estado: OK\n"
-            "#AirQuality #IoT #StudentProject")
-    twitter_client.create_tweet(text=text)
-    return {"status": "Tweet enviado (si se permite)"}
+    await post_hourly_summary()
+    return {"status": "Hourly summary tweet sent"}
 
-# ----------------- Scheduler seguro -----------------
-def post_summary_job():
-    # Ejecuta la coroutine en un loop existente o nuevo
+@app.post("/post_urgent")
+async def post_urgent_endpoint(robot_id: int = None):
+    result = await post_urgent_check(robot_id)
+    return result
+
+def run_async_task(coro):
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    loop.run_until_complete(post_summary_async())
+    loop.run_until_complete(coro)
 
 scheduler = AsyncIOScheduler()
-scheduler.add_job(post_summary_job, "cron", minute=0)  # cada hora en el minuto 0
+scheduler.add_job(lambda: run_async_task(post_hourly_summary()), "cron", minute=0)
+scheduler.add_job(lambda: run_async_task(post_urgent_check()), "interval", minutes=5)
 scheduler.start()
